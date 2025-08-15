@@ -91,4 +91,4 @@ router.put(
 router.post("/refresh-token", auth, authController.refreshToken);
 router.post("/logout", auth, authController.logout);
 
-module.exports = router;
+export default router;

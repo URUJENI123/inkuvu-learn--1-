@@ -3,7 +3,12 @@ import multer from "multer";
 import { v2 as cloudinary } from "cloudinary";
 import path from "path";
 import fs from "fs";
-import { auth, adminAuth, teacherAuth } from "../middleware/auth.js";
+import { fileURLToPath } from "url";
+import { dirname } from "path";
+import { auth, teacherAuth } from "../middleware/auth.js";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 const router = express.Router();
 
@@ -489,7 +494,7 @@ router.post(
       deleteTempFile(req.file.path);
 
       // Update user profile image in database
-      const User = require("../models/User");
+      const { default: User } = await import("../models/User.js");
       await User.findByIdAndUpdate(req.user.id, {
         profileImage: uploadResult.secure_url,
       });

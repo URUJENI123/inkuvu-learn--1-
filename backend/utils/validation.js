@@ -50,7 +50,7 @@ const validateQuery = (schema) => {
   };
 };
 
-export default {
+export {
   objectIdSchema,
   paginationSchema,
   searchSchema,

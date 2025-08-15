@@ -3,12 +3,17 @@ import cors from "cors";
 import mongoose from "mongoose";
 import dotenv from "dotenv";
 import path from "path";
+import { fileURLToPath } from "url";
+import fs from "fs";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Import routes
 import authRoutes from "./routes/auth.js";
 import userRoutes from "./routes/user.js";
 import courseRoutes from "./routes/course.js";
-import resourceRoutes from  "./routes/resources.js";
+import resourceRoutes from "./routes/resources.js";
 import uploadRoutes from "./routes/upload.js";
 
 // Load environment variables
@@ -27,8 +32,11 @@ app.use(
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
-// Serve uploaded files
-app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+const uploadsDir = path.join(__dirname, "uploads");
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
+app.use("/uploads", express.static(uploadsDir));
 
 // Database connection
 mongoose
@@ -73,4 +81,5 @@ app.use("*", (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
+  console.log(`Uploads directory: ${uploadsDir}`);
 });
