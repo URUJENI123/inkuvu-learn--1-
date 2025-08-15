@@ -1,5 +1,5 @@
-import Course from "../model/Course.js";
-import User from "../model/User.js";
+import Course from "../models/Course.js";
+import User from "../models/User.js";
 
 const courseController = {
   // Create a new course

@@ -153,7 +153,7 @@ const cleanupTempFiles = (files) => {
   });
 };
 
-export default {
+export {
   validateFileType,
   getFileSize,
   formatFileSize,

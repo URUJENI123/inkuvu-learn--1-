@@ -1,6 +1,6 @@
 import express from "express";
 import Joi from "joi";
-import  Resource from "../model/Resource.js";
+import Resource from "../model/Resource.js";
 import { auth, adminAuth, teacherAuth } from "../middleware/auth.js";
 import {
   validate,

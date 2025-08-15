@@ -1,7 +1,7 @@
 import express from "express";
 import Joi from "joi";
-import Course from "../models/Course.js";
-import User from "../models/User.js";
+import Course from "../model/Course.js";
+import User from "../model/User.js";
 import { auth, adminAuth, teacherAuth } from "../middleware/auth.js";
 import {
   validate,

@@ -1,5 +1,5 @@
-import User from "../model/User.js";
-import Course from "../model/Course.js";
+import User from "../models/User.js";
+import Course from "../models/Course.js";
 
 const userController = {
   // Get all users (admin only)
