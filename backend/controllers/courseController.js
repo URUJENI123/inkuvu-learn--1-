@@ -1,5 +1,4 @@
-import Course from "../models/Course.js";
-import User from "../models/User.js";
+import prisma from "../lib/prisma.js";
 
 const courseController = {
   // Create a new course
@@ -7,13 +6,26 @@ const courseController = {
     try {
       const courseData = {
         ...req.body,
-        instructor: req.user.id,
+        instructorId: req.user.id,
+        createdById: req.user.id,
+        category: req.body.category?.toUpperCase(),
+        level: req.body.level?.toUpperCase(),
+        language: req.body.language?.toUpperCase() || "EN",
       };
 
-      const course = new Course(courseData);
-      await course.save();
-
-      await course.populate("instructor", "firstName lastName email");
+      const course = await prisma.course.create({
+        data: courseData,
+        include: {
+          instructor: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+            },
+          },
+        },
+      });
 
       res.status(201).json({
         message: "Course created successfully",
@@ -46,32 +58,48 @@ const courseController = {
       } = req.query;
 
       // Build filter object
-      const filter = { isPublished: true };
+      const where = { isPublished: true };
 
-      if (category) filter.category = category;
-      if (level) filter.level = level;
-      if (language) filter.language = language;
+      if (category) where.category = category.toUpperCase();
+      if (level) where.level = level.toUpperCase();
+      if (language) where.language = language.toUpperCase();
       if (search) {
-        filter.$or = [
-          { title: { $regex: search, $options: "i" } },
-          { description: { $regex: search, $options: "i" } },
-          { tags: { $in: [new RegExp(search, "i")] } },
+        where.OR = [
+          { title: { contains: search, mode: "insensitive" } },
+          { description: { contains: search, mode: "insensitive" } },
+          { tags: { has: search } },
         ];
       }
 
-      // Build sort object
-      const sort = {};
-      sort[sortBy] = sortOrder === "desc" ? -1 : 1;
-
       const skip = (Number.parseInt(page) - 1) * Number.parseInt(limit);
 
-      const courses = await Course.find(filter)
-        .populate("instructor", "firstName lastName profileImage")
-        .sort(sort)
-        .skip(skip)
-        .limit(Number.parseInt(limit));
-
-      const total = await Course.countDocuments(filter);
+      const [courses, total] = await Promise.all([
+        prisma.course.findMany({
+          where,
+          include: {
+            instructor: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                profileImage: true,
+              },
+            },
+            _count: {
+              select: {
+                enrollments: true,
+                ratings: true,
+              },
+            },
+          },
+          orderBy: {
+            [sortBy]: sortOrder,
+          },
+          skip,
+          take: Number.parseInt(limit),
+        }),
+        prisma.course.count({ where }),
+      ]);
 
       res.json({
         courses,
@@ -98,9 +126,46 @@ const courseController = {
   // Get single course by ID
   getCourseById: async (req, res) => {
     try {
-      const course = await Course.findById(req.params.id)
-        .populate("instructor", "firstName lastName profileImage bio")
-        .populate("reviews.user", "firstName lastName profileImage");
+      const course = await prisma.course.findUnique({
+        where: { id: req.params.id },
+        include: {
+          instructor: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              profileImage: true,
+              bio: true,
+            },
+          },
+          lessons: {
+            include: {
+              resources: true,
+              quizzes: true,
+            },
+            orderBy: { order: "asc" },
+          },
+          ratings: {
+            include: {
+              user: {
+                select: {
+                  id: true,
+                  firstName: true,
+                  lastName: true,
+                  profileImage: true,
+                },
+              },
+            },
+            orderBy: { createdAt: "desc" },
+          },
+          _count: {
+            select: {
+              enrollments: true,
+              ratings: true,
+            },
+          },
+        },
+      });
 
       if (!course) {
         return res.status(404).json({
@@ -111,12 +176,30 @@ const courseController = {
       // Check if user is enrolled (if authenticated)
       let isEnrolled = false;
       if (req.user) {
-        const user = await User.findById(req.user.id);
-        isEnrolled = user.coursesEnrolled.includes(course._id);
+        const enrollment = await prisma.courseEnrollment.findUnique({
+          where: {
+            studentId_courseId: {
+              studentId: req.user.id,
+              courseId: course.id,
+            },
+          },
+        });
+        isEnrolled = !!enrollment;
       }
 
+      // Calculate average rating
+      const averageRating =
+        course.ratings.length > 0
+          ? course.ratings.reduce((sum, rating) => sum + rating.rating, 0) /
+            course.ratings.length
+          : 0;
+
       res.json({
-        course,
+        course: {
+          ...course,
+          averageRating: Number.parseFloat(averageRating.toFixed(1)),
+          totalEnrolled: course._count.enrollments,
+        },
         isEnrolled,
       });
     } catch (error) {
@@ -134,7 +217,9 @@ const courseController = {
   // Update course
   updateCourse: async (req, res) => {
     try {
-      const course = await Course.findById(req.params.id);
+      const course = await prisma.course.findUnique({
+        where: { id: req.params.id },
+      });
 
       if (!course) {
         return res.status(404).json({
@@ -143,23 +228,33 @@ const courseController = {
       }
 
       // Check if user is instructor or admin
-      if (
-        course.instructor.toString() !== req.user.id &&
-        req.user.role !== "admin"
-      ) {
+      if (course.instructorId !== req.user.id && req.user.role !== "ADMIN") {
         return res.status(403).json({
           message: "Not authorized to update this course",
         });
       }
 
-      const updatedCourse = await Course.findByIdAndUpdate(
-        req.params.id,
-        req.body,
-        {
-          new: true,
-          runValidators: true,
-        }
-      ).populate("instructor", "firstName lastName email");
+      const updateData = { ...req.body };
+      if (updateData.category)
+        updateData.category = updateData.category.toUpperCase();
+      if (updateData.level) updateData.level = updateData.level.toUpperCase();
+      if (updateData.language)
+        updateData.language = updateData.language.toUpperCase();
+
+      const updatedCourse = await prisma.course.update({
+        where: { id: req.params.id },
+        data: updateData,
+        include: {
+          instructor: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+            },
+          },
+        },
+      });
 
       res.json({
         message: "Course updated successfully",
@@ -180,7 +275,9 @@ const courseController = {
   // Delete course
   deleteCourse: async (req, res) => {
     try {
-      const course = await Course.findById(req.params.id);
+      const course = await prisma.course.findUnique({
+        where: { id: req.params.id },
+      });
 
       if (!course) {
         return res.status(404).json({
@@ -189,16 +286,15 @@ const courseController = {
       }
 
       // Check if user is instructor or admin
-      if (
-        course.instructor.toString() !== req.user.id &&
-        req.user.role !== "admin"
-      ) {
+      if (course.instructorId !== req.user.id && req.user.role !== "ADMIN") {
         return res.status(403).json({
           message: "Not authorized to delete this course",
         });
       }
 
-      await Course.findByIdAndDelete(req.params.id);
+      await prisma.course.delete({
+        where: { id: req.params.id },
+      });
 
       res.json({
         message: "Course deleted successfully",
@@ -218,8 +314,9 @@ const courseController = {
   // Enroll in course
   enrollInCourse: async (req, res) => {
     try {
-      const course = await Course.findById(req.params.id);
-      const user = await User.findById(req.user.id);
+      const course = await prisma.course.findUnique({
+        where: { id: req.params.id },
+      });
 
       if (!course) {
         return res.status(404).json({
@@ -228,24 +325,35 @@ const courseController = {
       }
 
       // Check if already enrolled
-      if (user.coursesEnrolled.includes(course._id)) {
+      const existingEnrollment = await prisma.courseEnrollment.findUnique({
+        where: {
+          studentId_courseId: {
+            studentId: req.user.id,
+            courseId: req.params.id,
+          },
+        },
+      });
+
+      if (existingEnrollment) {
         return res.status(400).json({
           message: "Already enrolled in this course",
         });
       }
 
-      // Add course to user's enrolled courses
-      user.coursesEnrolled.push(course._id);
-      await user.save();
-
-      // Increment enrollment count
-      course.enrollmentCount += 1;
-      await course.save();
+      // Create enrollment
+      await prisma.courseEnrollment.create({
+        data: {
+          studentId: req.user.id,
+          courseId: req.params.id,
+          progress: 0,
+          completedLessons: [],
+        },
+      });
 
       res.json({
         message: "Successfully enrolled in course",
         course: {
-          id: course._id,
+          id: course.id,
           title: course.title,
           thumbnailUrl: course.thumbnailUrl,
         },
@@ -265,16 +373,31 @@ const courseController = {
   // Get user's enrolled courses
   getEnrolledCourses: async (req, res) => {
     try {
-      const user = await User.findById(req.user.id).populate({
-        path: "coursesEnrolled",
-        populate: {
-          path: "instructor",
-          select: "firstName lastName",
+      const enrollments = await prisma.courseEnrollment.findMany({
+        where: { studentId: req.user.id },
+        include: {
+          course: {
+            include: {
+              instructor: {
+                select: {
+                  id: true,
+                  firstName: true,
+                  lastName: true,
+                },
+              },
+            },
+          },
         },
       });
 
+      const courses = enrollments.map((enrollment) => ({
+        ...enrollment.course,
+        enrollmentProgress: enrollment.progress,
+        completedLessons: enrollment.completedLessons,
+      }));
+
       res.json({
-        courses: user.coursesEnrolled,
+        courses,
       });
     } catch (error) {
       console.error("Get enrolled courses error:", error);
@@ -294,59 +417,84 @@ const courseController = {
       const { lessonId, completed } = req.body;
       const courseId = req.params.id;
 
-      const user = await User.findById(req.user.id);
-
       // Check if enrolled
-      if (!user.coursesEnrolled.includes(courseId)) {
+      const enrollment = await prisma.courseEnrollment.findUnique({
+        where: {
+          studentId_courseId: {
+            studentId: req.user.id,
+            courseId: courseId,
+          },
+        },
+      });
+
+      if (!enrollment) {
         return res.status(403).json({
           message: "Not enrolled in this course",
         });
       }
 
-      // Find or create progress entry
-      let progressEntry = user.coursesCompleted.find(
-        (entry) => entry.courseId.toString() === courseId
-      );
+      // Get course to calculate progress
+      const course = await prisma.course.findUnique({
+        where: { id: courseId },
+        include: { lessons: true },
+      });
 
-      if (!progressEntry) {
-        progressEntry = {
-          courseId,
-          completedLessons: [],
-          completionPercentage: 0,
-          completedAt: null,
-        };
-        user.coursesCompleted.push(progressEntry);
-      }
+      let completedLessons = [...enrollment.completedLessons];
 
       // Update lesson completion
-      if (completed && !progressEntry.completedLessons.includes(lessonId)) {
-        progressEntry.completedLessons.push(lessonId);
+      if (completed && !completedLessons.includes(Number.parseInt(lessonId))) {
+        completedLessons.push(Number.parseInt(lessonId));
       } else if (!completed) {
-        progressEntry.completedLessons = progressEntry.completedLessons.filter(
-          (id) => id.toString() !== lessonId
+        completedLessons = completedLessons.filter(
+          (id) => id !== Number.parseInt(lessonId)
         );
       }
 
       // Calculate completion percentage
-      const course = await Course.findById(courseId);
       const totalLessons = course.lessons.length;
-      progressEntry.completionPercentage = Math.round(
-        (progressEntry.completedLessons.length / totalLessons) * 100
-      );
+      const progress =
+        totalLessons > 0 ? completedLessons.length / totalLessons : 0;
 
-      // Mark as completed if 100%
-      if (
-        progressEntry.completionPercentage === 100 &&
-        !progressEntry.completedAt
-      ) {
-        progressEntry.completedAt = new Date();
+      // Update enrollment
+      const updatedEnrollment = await prisma.courseEnrollment.update({
+        where: {
+          studentId_courseId: {
+            studentId: req.user.id,
+            courseId: courseId,
+          },
+        },
+        data: {
+          completedLessons,
+          progress,
+        },
+      });
+
+      // Create completion record if 100%
+      if (progress === 1) {
+        await prisma.courseCompletion.upsert({
+          where: {
+            studentId_courseId: {
+              studentId: req.user.id,
+              courseId: courseId,
+            },
+          },
+          update: {},
+          create: {
+            studentId: req.user.id,
+            courseId: courseId,
+            score: null,
+          },
+        });
       }
-
-      await user.save();
 
       res.json({
         message: "Progress updated successfully",
-        progress: progressEntry,
+        progress: {
+          courseId,
+          completedLessons,
+          completionPercentage: Math.round(progress * 100),
+          completedAt: progress === 1 ? new Date() : null,
+        },
       });
     } catch (error) {
       console.error("Update progress error:", error);
@@ -363,11 +511,12 @@ const courseController = {
   // Add course review
   addReview: async (req, res) => {
     try {
-      const { rating, comment } = req.body;
+      const { rating, review } = req.body;
       const courseId = req.params.id;
 
-      const course = await Course.findById(courseId);
-      const user = await User.findById(req.user.id);
+      const course = await prisma.course.findUnique({
+        where: { id: courseId },
+      });
 
       if (!course) {
         return res.status(404).json({
@@ -376,16 +525,31 @@ const courseController = {
       }
 
       // Check if enrolled
-      if (!user.coursesEnrolled.includes(courseId)) {
+      const enrollment = await prisma.courseEnrollment.findUnique({
+        where: {
+          studentId_courseId: {
+            studentId: req.user.id,
+            courseId: courseId,
+          },
+        },
+      });
+
+      if (!enrollment) {
         return res.status(403).json({
           message: "Must be enrolled to review this course",
         });
       }
 
       // Check if already reviewed
-      const existingReview = course.reviews.find(
-        (review) => review.user.toString() === req.user.id
-      );
+      const existingReview = await prisma.courseRating.findUnique({
+        where: {
+          userId_courseId: {
+            userId: req.user.id,
+            courseId: courseId,
+          },
+        },
+      });
+
       if (existingReview) {
         return res.status(400).json({
           message: "You have already reviewed this course",
@@ -393,26 +557,36 @@ const courseController = {
       }
 
       // Add review
-      course.reviews.push({
-        user: req.user.id,
-        rating,
-        comment,
+      const newReview = await prisma.courseRating.create({
+        data: {
+          userId: req.user.id,
+          courseId: courseId,
+          rating: Number.parseInt(rating),
+          review,
+        },
+        include: {
+          user: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              profileImage: true,
+            },
+          },
+        },
       });
 
-      // Update average rating
-      const totalRating = course.reviews.reduce(
-        (sum, review) => sum + review.rating,
-        0
-      );
-      course.averageRating = totalRating / course.reviews.length;
-
-      await course.save();
-      await course.populate("reviews.user", "firstName lastName profileImage");
+      // Calculate new average rating
+      const allRatings = await prisma.courseRating.findMany({
+        where: { courseId },
+      });
+      const averageRating =
+        allRatings.reduce((sum, r) => sum + r.rating, 0) / allRatings.length;
 
       res.json({
         message: "Review added successfully",
-        review: course.reviews[course.reviews.length - 1],
-        averageRating: course.averageRating,
+        review: newReview,
+        averageRating: Number.parseFloat(averageRating.toFixed(1)),
       });
     } catch (error) {
       console.error("Add review error:", error);

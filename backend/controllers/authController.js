@@ -1,5 +1,6 @@
 import jwt from "jsonwebtoken";
-import User from "../model/User.js";
+import bcrypt from "bcryptjs";
+import prisma from "../lib/prisma.js";
 
 // Generate JWT token
 const generateToken = (userId) => {
@@ -16,40 +17,45 @@ const authController = {
         req.body;
 
       // Check if user already exists
-      const existingUser = await User.findOne({ email });
+      const existingUser = await prisma.user.findUnique({
+        where: { email },
+      });
+
       if (existingUser) {
         return res.status(400).json({
           message: "User already exists with this email",
         });
       }
 
+      const hashedPassword = await bcrypt.hash(password, 12);
+
       // Create new user
-      const user = new User({
-        firstName,
-        lastName,
-        email,
-        password,
-        role,
-        preferredLanguage,
+      const user = await prisma.user.create({
+        data: {
+          firstName,
+          lastName,
+          email,
+          password: hashedPassword,
+          role: role?.toUpperCase() || "STUDENT",
+          preferredLanguage: preferredLanguage?.toUpperCase() || "EN",
+        },
       });
 
-      await user.save();
-
       // Generate token
-      const token = generateToken(user._id);
+      const token = generateToken(user.id);
 
       // Return user data
       res.status(201).json({
         message: "User registered successfully",
         token,
         user: {
-          id: user._id,
+          id: user.id,
           firstName: user.firstName,
           lastName: user.lastName,
           email: user.email,
           role: user.role,
           preferredLanguage: user.preferredLanguage,
-          fullName: user.fullName,
+          fullName: `${user.firstName} ${user.lastName}`,
         },
       });
     } catch (error) {
@@ -70,7 +76,10 @@ const authController = {
       const { email, password } = req.body;
 
       // Check if user exists
-      const user = await User.findOne({ email });
+      const user = await prisma.user.findUnique({
+        where: { email },
+      });
+
       if (!user) {
         return res.status(400).json({
           message: "Invalid credentials",
@@ -85,7 +94,7 @@ const authController = {
       }
 
       // Verify password
-      const isMatch = await user.comparePassword(password);
+      const isMatch = await bcrypt.compare(password, user.password);
       if (!isMatch) {
         return res.status(400).json({
           message: "Invalid credentials",
@@ -93,25 +102,27 @@ const authController = {
       }
 
       // Update last login
-      user.lastLogin = new Date();
-      await user.save();
+      const updatedUser = await prisma.user.update({
+        where: { id: user.id },
+        data: { lastLogin: new Date() },
+      });
 
       // Generate token
-      const token = generateToken(user._id);
+      const token = generateToken(user.id);
 
       res.json({
         message: "Login successful",
         token,
         user: {
-          id: user._id,
+          id: user.id,
           firstName: user.firstName,
           lastName: user.lastName,
           email: user.email,
           role: user.role,
           preferredLanguage: user.preferredLanguage,
           profileImage: user.profileImage,
-          fullName: user.fullName,
-          lastLogin: user.lastLogin,
+          fullName: `${user.firstName} ${user.lastName}`,
+          lastLogin: updatedUser.lastLogin,
         },
       });
     } catch (error) {
@@ -129,13 +140,38 @@ const authController = {
   // Get current user
   getMe: async (req, res) => {
     try {
-      const user = await User.findById(req.user.id)
-        .populate("coursesEnrolled", "title thumbnailUrl")
-        .populate("coursesCompleted.courseId", "title thumbnailUrl");
+      const user = await prisma.user.findUnique({
+        where: { id: req.user.id },
+        include: {
+          coursesEnrolled: {
+            include: {
+              course: {
+                select: {
+                  id: true,
+                  title: true,
+                  thumbnailUrl: true,
+                },
+              },
+            },
+          },
+          coursesCompleted: {
+            include: {
+              course: {
+                select: {
+                  id: true,
+                  title: true,
+                  thumbnailUrl: true,
+                },
+              },
+            },
+          },
+          achievements: true,
+        },
+      });
 
       res.json({
         user: {
-          id: user._id,
+          id: user.id,
           firstName: user.firstName,
           lastName: user.lastName,
           email: user.email,
@@ -144,11 +180,20 @@ const authController = {
           bio: user.bio,
           location: user.location,
           preferredLanguage: user.preferredLanguage,
-          accessibilityPreferences: user.accessibilityPreferences,
-          coursesEnrolled: user.coursesEnrolled,
+          accessibilityPreferences: {
+            screenReader: user.screenReader,
+            highContrast: user.highContrast,
+            largeText: user.largeText,
+            audioDescriptions: user.audioDescriptions,
+            signLanguage: user.signLanguage,
+            brailleSupport: user.brailleSupport,
+          },
+          coursesEnrolled: user.coursesEnrolled.map(
+            (enrollment) => enrollment.course
+          ),
           coursesCompleted: user.coursesCompleted,
           achievements: user.achievements,
-          fullName: user.fullName,
+          fullName: `${user.firstName} ${user.lastName}`,
           lastLogin: user.lastLogin,
           createdAt: user.createdAt,
         },
@@ -174,25 +219,36 @@ const authController = {
         "bio",
         "location",
         "preferredLanguage",
-        "accessibilityPreferences",
       ];
 
       const updates = {};
+      const accessibilityUpdates = {};
+
       Object.keys(req.body).forEach((key) => {
         if (allowedUpdates.includes(key)) {
-          updates[key] = req.body[key];
+          if (key === "preferredLanguage") {
+            updates[key] = req.body[key]?.toUpperCase();
+          } else {
+            updates[key] = req.body[key];
+          }
+        } else if (key === "accessibilityPreferences" && req.body[key]) {
+          Object.assign(accessibilityUpdates, req.body[key]);
         }
       });
 
-      const user = await User.findByIdAndUpdate(req.user.id, updates, {
-        new: true,
-        runValidators: true,
+      // Merge accessibility preferences into main updates
+      Object.assign(updates, accessibilityUpdates);
+
+      // Update user profile
+      const user = await prisma.user.update({
+        where: { id: req.user.id },
+        data: updates,
       });
 
       res.json({
         message: "Profile updated successfully",
         user: {
-          id: user._id,
+          id: user.id,
           firstName: user.firstName,
           lastName: user.lastName,
           email: user.email,
@@ -201,8 +257,15 @@ const authController = {
           bio: user.bio,
           location: user.location,
           preferredLanguage: user.preferredLanguage,
-          accessibilityPreferences: user.accessibilityPreferences,
-          fullName: user.fullName,
+          accessibilityPreferences: {
+            screenReader: user.screenReader,
+            highContrast: user.highContrast,
+            largeText: user.largeText,
+            audioDescriptions: user.audioDescriptions,
+            signLanguage: user.signLanguage,
+            brailleSupport: user.brailleSupport,
+          },
+          fullName: `${user.firstName} ${user.lastName}`,
         },
       });
     } catch (error) {
@@ -223,19 +286,23 @@ const authController = {
       const { currentPassword, newPassword } = req.body;
 
       // Get user with password
-      const user = await User.findById(req.user.id);
+      const user = await prisma.user.findUnique({
+        where: { id: req.user.id },
+      });
 
       // Verify current password
-      const isMatch = await user.comparePassword(currentPassword);
+      const isMatch = await bcrypt.compare(currentPassword, user.password);
       if (!isMatch) {
         return res.status(400).json({
           message: "Current password is incorrect",
         });
       }
 
-      // Update password
-      user.password = newPassword;
-      await user.save();
+      const hashedPassword = await bcrypt.hash(newPassword, 12);
+      await prisma.user.update({
+        where: { id: req.user.id },
+        data: { password: hashedPassword },
+      });
 
       res.json({
         message: "Password changed successfully",

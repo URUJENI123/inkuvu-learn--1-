@@ -1,9 +1,18 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Input } from "@/components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+"use client";
+
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useLanguage } from "@/contexts/language-context";
 import {
   Search,
   Filter,
@@ -19,7 +28,7 @@ import {
   Volume2,
   Hand,
   BlindsIcon as Braille,
-} from "lucide-react"
+} from "lucide-react";
 
 const resourceCategories = [
   { id: "all", name: "All Resources", count: 247 },
@@ -29,13 +38,14 @@ const resourceCategories = [
   { id: "social", name: "Social Studies", count: 29 },
   { id: "sign-language", name: "Sign Language", count: 23 },
   { id: "teacher-training", name: "Teacher Training", count: 45 },
-]
+];
 
 const featuredResources = [
   {
     id: 1,
     title: "Mathematics Grade 4 - Fractions",
-    description: "Interactive lessons with tactile diagrams and audio explanations",
+    description:
+      "Interactive lessons with tactile diagrams and audio explanations",
     grade: "Grade 4",
     subject: "Mathematics",
     type: "Interactive Lesson",
@@ -77,7 +87,7 @@ const featuredResources = [
     icon: Headphones,
     iconColor: "purple",
   },
-]
+];
 
 const allResources = [
   {
@@ -136,60 +146,70 @@ const allResources = [
     icon: BookOpen,
     iconColor: "teal",
   },
-]
+];
 
 function getFormatIcon(format: string) {
   switch (format) {
     case "braille":
-      return <Braille className="w-3 h-3" />
+      return <Braille className="w-3 h-3" />;
     case "audio":
-      return <Volume2 className="w-3 h-3" />
+      return <Volume2 className="w-3 h-3" />;
     case "video":
-      return <Play className="w-3 h-3" />
+      return <Play className="w-3 h-3" />;
     case "sign-language":
-      return <Hand className="w-3 h-3" />
+      return <Hand className="w-3 h-3" />;
     case "tactile":
-      return <FileText className="w-3 h-3" />
+      return <FileText className="w-3 h-3" />;
     default:
-      return <FileText className="w-3 h-3" />
+      return <FileText className="w-3 h-3" />;
   }
 }
 
 function getFormatColor(format: string) {
   switch (format) {
     case "braille":
-      return "bg-blue-100 text-blue-700"
+      return "bg-blue-100 text-blue-700";
     case "audio":
-      return "bg-green-100 text-green-700"
+      return "bg-green-100 text-green-700";
     case "video":
-      return "bg-purple-100 text-purple-700"
+      return "bg-purple-100 text-purple-700";
     case "sign-language":
-      return "bg-orange-100 text-orange-700"
+      return "bg-orange-100 text-orange-700";
     case "tactile":
-      return "bg-gray-100 text-gray-700"
+      return "bg-gray-100 text-gray-700";
     default:
-      return "bg-gray-100 text-gray-700"
+      return "bg-gray-100 text-gray-700";
   }
 }
 
-export function DigitalLibrary() {
+export function DigitalLibrary({
+  onNavigateToResource,
+  onNavigateToCategory,
+}: {
+  onNavigateToResource?: (resourceId: string) => void;
+  onNavigateToCategory?: (categoryId: string) => void;
+}) {
+  const { t } = useLanguage();
+
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
       {/* Header */}
       <div className="bg-white border-b border-gray-200 p-6">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Digital Library</h1>
-            <p className="text-gray-600 mt-1">Discover accessible learning resources for inclusive education</p>
+            <h1 className="text-2xl font-bold text-gray-900">
+              {t("library.title")}
+            </h1>
+            <p className="text-gray-600 mt-1">{t("library.subtitle")}</p>
           </div>
           <div className="flex items-center gap-3">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-              <Input placeholder="Search resources, subjects, or formats..." className="pl-10 w-96" />
+              <Input placeholder={t("library.search")} className="pl-10 w-96" />
             </div>
             <Button variant="outline" size="sm">
               <Filter className="w-4 h-4 mr-2" />
-              Filter
+              {t("common.filter")}
             </Button>
           </div>
         </div>
@@ -228,12 +248,12 @@ export function DigitalLibrary() {
 
           <Select defaultValue="newest">
             <SelectTrigger className="w-48">
-              <SelectValue placeholder="Sort by" />
+              <SelectValue placeholder={t("library.sort_by")} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="newest">Newest First</SelectItem>
-              <SelectItem value="popular">Most Popular</SelectItem>
-              <SelectItem value="rating">Highest Rated</SelectItem>
+              <SelectItem value="newest">{t("library.newest")}</SelectItem>
+              <SelectItem value="popular">{t("library.popular")}</SelectItem>
+              <SelectItem value="rating">{t("library.rating")}</SelectItem>
               <SelectItem value="title">Title A-Z</SelectItem>
             </SelectContent>
           </Select>
@@ -245,23 +265,34 @@ export function DigitalLibrary() {
         <div className="flex">
           {/* Sidebar Categories */}
           <div className="w-64 bg-gray-50 border-r border-gray-200 p-4">
-            <h3 className="font-semibold text-sm text-gray-900 mb-3">Categories</h3>
+            <h3 className="font-semibold text-sm text-gray-900 mb-3">
+              Categories
+            </h3>
             <div className="space-y-1">
               {resourceCategories.map((category) => (
                 <button
                   key={category.id}
                   className={`w-full flex items-center justify-between px-3 py-2 text-sm rounded-lg hover:bg-white transition-colors ${
-                    category.id === "all" ? "bg-white text-blue-600 font-medium" : "text-gray-700"
+                    category.id === "all"
+                      ? "bg-white text-blue-600 font-medium"
+                      : "text-gray-700"
                   }`}
+                  onClick={() =>
+                    category.id !== "all" && onNavigateToCategory?.(category.id)
+                  }
                 >
                   <span>{category.name}</span>
-                  <span className="text-xs text-gray-500">{category.count}</span>
+                  <span className="text-xs text-gray-500">
+                    {category.count}
+                  </span>
                 </button>
               ))}
             </div>
 
             <div className="mt-6">
-              <h3 className="font-semibold text-sm text-gray-900 mb-3">Quick Filters</h3>
+              <h3 className="font-semibold text-sm text-gray-900 mb-3">
+                Quick Filters
+              </h3>
               <div className="space-y-2">
                 <button className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 rounded-lg hover:bg-white transition-colors">
                   <Braille className="w-4 h-4 text-blue-600" />
@@ -287,33 +318,56 @@ export function DigitalLibrary() {
           <div className="flex-1 p-6">
             <Tabs defaultValue="featured" className="w-full">
               <TabsList className="grid w-full grid-cols-3">
-                <TabsTrigger value="featured">Featured</TabsTrigger>
-                <TabsTrigger value="all">All Resources</TabsTrigger>
-                <TabsTrigger value="recent">Recently Added</TabsTrigger>
+                <TabsTrigger value="featured">
+                  {t("library.featured")}
+                </TabsTrigger>
+                <TabsTrigger value="all">
+                  {t("library.all_resources")}
+                </TabsTrigger>
+                <TabsTrigger value="recent">
+                  {t("library.new_resources")}
+                </TabsTrigger>
               </TabsList>
 
               <TabsContent value="featured" className="mt-6">
                 <div className="mb-6">
-                  <h2 className="text-lg font-semibold text-gray-900 mb-4">Featured This Week</h2>
+                  <h2 className="text-lg font-semibold text-gray-900 mb-4">
+                    {t("library.featured_this_week")}
+                  </h2>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {featuredResources.map((resource) => {
-                      const IconComponent = resource.icon
+                      const IconComponent = resource.icon;
                       return (
-                        <Card key={resource.id} className="hover:shadow-lg transition-shadow">
+                        <Card
+                          key={resource.id}
+                          className="hover:shadow-lg transition-shadow"
+                        >
                           <CardHeader className="pb-3">
                             <div className="flex items-start justify-between mb-3">
                               <div
                                 className={`w-12 h-12 bg-${resource.iconColor}-100 rounded-lg flex items-center justify-center`}
                               >
-                                <IconComponent className={`w-6 h-6 text-${resource.iconColor}-600`} />
+                                <IconComponent
+                                  className={`w-6 h-6 text-${resource.iconColor}-600`}
+                                />
                               </div>
                               <div className="flex gap-2">
-                                {resource.isNew && <Badge variant="secondary">New</Badge>}
-                                <Badge variant="outline">{resource.grade}</Badge>
+                                {resource.isNew && (
+                                  <Badge variant="secondary">
+                                    {t("common.new")}
+                                  </Badge>
+                                )}
+                                <Badge variant="outline">
+                                  {resource.grade}
+                                </Badge>
                               </div>
                             </div>
-                            <CardTitle className="text-base leading-tight">{resource.title}</CardTitle>
-                            <p className="text-sm text-gray-600 line-clamp-2">{resource.description}</p>
+                            <CardTitle className="text-base leading-tight">
+                              {resource.title}
+                            </CardTitle>
+                            <p className="text-sm text-gray-600 line-clamp-2">
+                              {resource.description}
+                            </p>
                           </CardHeader>
                           <CardContent>
                             <div className="flex items-center gap-4 text-sm text-gray-500 mb-3">
@@ -332,10 +386,17 @@ export function DigitalLibrary() {
                             </div>
                             <div className="flex flex-wrap gap-1 mb-4">
                               {resource.formats.map((format) => (
-                                <Badge key={format} variant="outline" className={`text-xs ${getFormatColor(format)}`}>
+                                <Badge
+                                  key={format}
+                                  variant="outline"
+                                  className={`text-xs ${getFormatColor(
+                                    format
+                                  )}`}
+                                >
                                   <span className="flex items-center gap-1">
                                     {getFormatIcon(format)}
-                                    {format.charAt(0).toUpperCase() + format.slice(1).replace("-", " ")}
+                                    {format.charAt(0).toUpperCase() +
+                                      format.slice(1).replace("-", " ")}
                                   </span>
                                 </Badge>
                               ))}
@@ -343,15 +404,23 @@ export function DigitalLibrary() {
                             <div className="flex gap-2">
                               <Button size="sm" className="flex-1">
                                 <Download className="w-4 h-4 mr-2" />
-                                Download
+                                {t("common.download")}
                               </Button>
-                              <Button size="sm" variant="outline" className="bg-transparent">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="bg-transparent"
+                                onClick={() =>
+                                  onNavigateToResource?.(resource.id.toString())
+                                }
+                              >
                                 <Eye className="w-4 h-4" />
+                                {t("common.preview")}
                               </Button>
                             </div>
                           </CardContent>
                         </Card>
-                      )
+                      );
                     })}
                   </div>
                 </div>
@@ -359,27 +428,40 @@ export function DigitalLibrary() {
 
               <TabsContent value="all" className="mt-6">
                 <div className="mb-4 flex items-center justify-between">
-                  <h2 className="text-lg font-semibold text-gray-900">All Resources</h2>
-                  <p className="text-sm text-gray-500">Showing 247 resources</p>
+                  <h2 className="text-lg font-semibold text-gray-900">
+                    {t("library.all_resources")}
+                  </h2>
+                  <p className="text-sm text-gray-500">
+                    {t("library.showing_resources") + " 247"}
+                  </p>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                   {allResources.map((resource) => {
-                    const IconComponent = resource.icon
+                    const IconComponent = resource.icon;
                     return (
-                      <Card key={resource.id} className="hover:shadow-md transition-shadow">
+                      <Card
+                        key={resource.id}
+                        className="hover:shadow-md transition-shadow"
+                      >
                         <CardHeader className="pb-3">
                           <div className="flex items-start justify-between mb-2">
                             <div
                               className={`w-10 h-10 bg-${resource.iconColor}-100 rounded-lg flex items-center justify-center`}
                             >
-                              <IconComponent className={`w-5 h-5 text-${resource.iconColor}-600`} />
+                              <IconComponent
+                                className={`w-5 h-5 text-${resource.iconColor}-600`}
+                              />
                             </div>
                             <Badge variant="outline" className="text-xs">
                               {resource.grade}
                             </Badge>
                           </div>
-                          <CardTitle className="text-sm leading-tight line-clamp-2">{resource.title}</CardTitle>
-                          <p className="text-xs text-gray-600 line-clamp-2">{resource.description}</p>
+                          <CardTitle className="text-sm leading-tight line-clamp-2">
+                            {resource.title}
+                          </CardTitle>
+                          <p className="text-xs text-gray-600 line-clamp-2">
+                            {resource.description}
+                          </p>
                         </CardHeader>
                         <CardContent>
                           <div className="flex items-center gap-3 text-xs text-gray-500 mb-2">
@@ -394,7 +476,11 @@ export function DigitalLibrary() {
                           </div>
                           <div className="flex flex-wrap gap-1 mb-3">
                             {resource.formats.slice(0, 2).map((format) => (
-                              <Badge key={format} variant="outline" className={`text-xs ${getFormatColor(format)}`}>
+                              <Badge
+                                key={format}
+                                variant="outline"
+                                className={`text-xs ${getFormatColor(format)}`}
+                              >
                                 {getFormatIcon(format)}
                               </Badge>
                             ))}
@@ -404,41 +490,61 @@ export function DigitalLibrary() {
                               </Badge>
                             )}
                           </div>
-                          <Button size="sm" variant="outline" className="w-full bg-transparent text-xs">
-                            Preview
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="w-full bg-transparent text-xs"
+                          >
+                            {t("common.preview")}
                           </Button>
                         </CardContent>
                       </Card>
-                    )
+                    );
                   })}
                 </div>
               </TabsContent>
 
               <TabsContent value="recent" className="mt-6">
                 <div className="mb-4">
-                  <h2 className="text-lg font-semibold text-gray-900">Recently Added</h2>
-                  <p className="text-sm text-gray-500">Latest resources added to the library</p>
+                  <h2 className="text-lg font-semibold text-gray-900">
+                    {t("library.new_resources")}
+                  </h2>
+                  <p className="text-sm text-gray-500">
+                    {t("library.latest_resources")}
+                  </p>
                 </div>
                 <div className="space-y-4">
                   {allResources.slice(0, 3).map((resource) => {
-                    const IconComponent = resource.icon
+                    const IconComponent = resource.icon;
                     return (
-                      <Card key={resource.id} className="hover:shadow-md transition-shadow">
+                      <Card
+                        key={resource.id}
+                        className="hover:shadow-md transition-shadow"
+                      >
                         <CardContent className="p-4">
                           <div className="flex items-start gap-4">
                             <div
                               className={`w-12 h-12 bg-${resource.iconColor}-100 rounded-lg flex items-center justify-center flex-shrink-0`}
                             >
-                              <IconComponent className={`w-6 h-6 text-${resource.iconColor}-600`} />
+                              <IconComponent
+                                className={`w-6 h-6 text-${resource.iconColor}-600`}
+                              />
                             </div>
                             <div className="flex-1 min-w-0">
                               <div className="flex items-start justify-between mb-2">
-                                <h3 className="font-medium text-gray-900 line-clamp-1">{resource.title}</h3>
-                                <Badge variant="outline" className="text-xs ml-2">
+                                <h3 className="font-medium text-gray-900 line-clamp-1">
+                                  {resource.title}
+                                </h3>
+                                <Badge
+                                  variant="outline"
+                                  className="text-xs ml-2"
+                                >
                                   {resource.grade}
                                 </Badge>
                               </div>
-                              <p className="text-sm text-gray-600 line-clamp-2 mb-3">{resource.description}</p>
+                              <p className="text-sm text-gray-600 line-clamp-2 mb-3">
+                                {resource.description}
+                              </p>
                               <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-4 text-sm text-gray-500">
                                   <span className="flex items-center gap-1">
@@ -455,12 +561,16 @@ export function DigitalLibrary() {
                                   </span>
                                 </div>
                                 <div className="flex gap-2">
-                                  <Button size="sm" variant="outline" className="bg-transparent">
-                                    Preview
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="bg-transparent"
+                                  >
+                                    {t("common.preview")}
                                   </Button>
                                   <Button size="sm">
                                     <Download className="w-4 h-4 mr-2" />
-                                    Download
+                                    {t("common.download")}
                                   </Button>
                                 </div>
                               </div>
@@ -468,7 +578,7 @@ export function DigitalLibrary() {
                           </div>
                         </CardContent>
                       </Card>
-                    )
+                    );
                   })}
                 </div>
               </TabsContent>
@@ -477,5 +587,5 @@ export function DigitalLibrary() {
         </div>
       </div>
     </div>
-  )
+  );
 }

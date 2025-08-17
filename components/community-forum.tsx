@@ -1,13 +1,19 @@
-"use client"
+"use client";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Search,
   Plus,
@@ -22,8 +28,8 @@ import {
   Heart,
   Reply,
   MoreHorizontal,
-} from "lucide-react"
-import { useState } from "react"
+} from "lucide-react";
+import { useState } from "react";
 
 const forumCategories = [
   { id: "all", name: "All Discussions", count: 156, color: "blue" },
@@ -32,7 +38,7 @@ const forumCategories = [
   { id: "sign-language", name: "Sign Language", count: 29, color: "orange" },
   { id: "support", name: "Parent Support", count: 23, color: "pink" },
   { id: "technology", name: "Technology Help", count: 21, color: "indigo" },
-]
+];
 
 const featuredDiscussions = [
   {
@@ -92,7 +98,7 @@ const featuredDiscussions = [
     isPinned: false,
     isAnswered: true,
   },
-]
+];
 
 const recentDiscussions = [
   {
@@ -152,20 +158,26 @@ const recentDiscussions = [
     isPinned: false,
     isAnswered: true,
   },
-]
+];
 
 function getCategoryColor(category: string) {
-  const cat = forumCategories.find((c) => c.id === category)
-  return cat?.color || "gray"
+  const cat = forumCategories.find((c) => c.id === category);
+  return cat?.color || "gray";
 }
 
-export function CommunityForum() {
-  const [selectedCategory, setSelectedCategory] = useState("all")
-  const [showNewPost, setShowNewPost] = useState(false)
+export function CommunityForum({
+  onNavigateToDiscussion,
+}: {
+  onNavigateToDiscussion?: (discussionId: string) => void;
+}) {
+  const [selectedCategory, setSelectedCategory] = useState("all");
+  const [showNewPost, setShowNewPost] = useState(false);
 
-  const allDiscussions = [...featuredDiscussions, ...recentDiscussions]
+  const allDiscussions = [...featuredDiscussions, ...recentDiscussions];
   const filteredDiscussions =
-    selectedCategory === "all" ? allDiscussions : allDiscussions.filter((d) => d.category === selectedCategory)
+    selectedCategory === "all"
+      ? allDiscussions
+      : allDiscussions.filter((d) => d.category === selectedCategory);
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
@@ -173,13 +185,20 @@ export function CommunityForum() {
       <div className="bg-white border-b border-gray-200 p-6">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Community Forum</h1>
-            <p className="text-gray-600 mt-1">Connect with teachers, parents, and experts in inclusive education</p>
+            <h1 className="text-2xl font-bold text-gray-900">
+              Community Forum
+            </h1>
+            <p className="text-gray-600 mt-1">
+              Connect with teachers, parents, and experts in inclusive education
+            </p>
           </div>
           <div className="flex items-center gap-3">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-              <Input placeholder="Search discussions..." className="pl-10 w-80" />
+              <Input
+                placeholder="Search discussions..."
+                className="pl-10 w-80"
+              />
             </div>
             <Button onClick={() => setShowNewPost(true)}>
               <Plus className="w-4 h-4 mr-2" />
@@ -210,24 +229,32 @@ export function CommunityForum() {
         <div className="flex">
           {/* Categories Sidebar */}
           <div className="w-64 bg-gray-50 border-r border-gray-200 p-4">
-            <h3 className="font-semibold text-sm text-gray-900 mb-3">Categories</h3>
+            <h3 className="font-semibold text-sm text-gray-900 mb-3">
+              Categories
+            </h3>
             <div className="space-y-1">
               {forumCategories.map((category) => (
                 <button
                   key={category.id}
                   onClick={() => setSelectedCategory(category.id)}
                   className={`w-full flex items-center justify-between px-3 py-2 text-sm rounded-lg hover:bg-white transition-colors ${
-                    selectedCategory === category.id ? "bg-white text-blue-600 font-medium" : "text-gray-700"
+                    selectedCategory === category.id
+                      ? "bg-white text-blue-600 font-medium"
+                      : "text-gray-700"
                   }`}
                 >
                   <span>{category.name}</span>
-                  <span className="text-xs text-gray-500">{category.count}</span>
+                  <span className="text-xs text-gray-500">
+                    {category.count}
+                  </span>
                 </button>
               ))}
             </div>
 
             <div className="mt-6">
-              <h3 className="font-semibold text-sm text-gray-900 mb-3">Quick Actions</h3>
+              <h3 className="font-semibold text-sm text-gray-900 mb-3">
+                Quick Actions
+              </h3>
               <div className="space-y-2">
                 <button className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 rounded-lg hover:bg-white transition-colors">
                   <Pin className="w-4 h-4 text-blue-600" />
@@ -274,22 +301,41 @@ export function CommunityForum() {
 
               <TabsContent value="discussions" className="space-y-4">
                 {filteredDiscussions.map((discussion) => (
-                  <Card key={discussion.id} className="hover:shadow-md transition-shadow">
+                  <Card
+                    key={discussion.id}
+                    className="hover:shadow-md transition-shadow"
+                  >
                     <CardContent className="p-6">
                       <div className="flex items-start gap-4">
                         <Avatar className="w-10 h-10">
-                          <AvatarImage src={discussion.author.avatar || "/placeholder.svg"} />
-                          <AvatarFallback>{discussion.author.initials}</AvatarFallback>
+                          <AvatarImage
+                            src={discussion.author.avatar || "/placeholder.svg"}
+                          />
+                          <AvatarFallback>
+                            {discussion.author.initials}
+                          </AvatarFallback>
                         </Avatar>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-start justify-between mb-2">
                             <div className="flex items-center gap-2">
-                              {discussion.isPinned && <Pin className="w-4 h-4 text-blue-600" />}
-                              <h3 className="font-medium text-gray-900 hover:text-blue-600 cursor-pointer">
+                              {discussion.isPinned && (
+                                <Pin className="w-4 h-4 text-blue-600" />
+                              )}
+                              <h3
+                                className="font-medium text-gray-900 hover:text-blue-600 cursor-pointer"
+                                onClick={() =>
+                                  onNavigateToDiscussion?.(
+                                    discussion.id.toString()
+                                  )
+                                }
+                              >
                                 {discussion.title}
                               </h3>
                               {discussion.isAnswered && (
-                                <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                                <Badge
+                                  variant="outline"
+                                  className="bg-green-50 text-green-700 border-green-200"
+                                >
                                   Answered
                                 </Badge>
                               )}
@@ -299,16 +345,26 @@ export function CommunityForum() {
                             </Button>
                           </div>
 
-                          <p className="text-gray-600 text-sm line-clamp-2 mb-3">{discussion.content}</p>
+                          <p className="text-gray-600 text-sm line-clamp-2 mb-3">
+                            {discussion.content}
+                          </p>
 
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-4">
                               <div className="flex items-center gap-1 text-sm text-gray-500">
-                                <span className="font-medium text-gray-900">{discussion.author.name}</span>
+                                <span className="font-medium text-gray-900">
+                                  {discussion.author.name}
+                                </span>
                                 <span>•</span>
                                 <Badge
                                   variant="outline"
-                                  className={`text-xs bg-${getCategoryColor(discussion.category)}-50 text-${getCategoryColor(discussion.category)}-700 border-${getCategoryColor(discussion.category)}-200`}
+                                  className={`text-xs bg-${getCategoryColor(
+                                    discussion.category
+                                  )}-50 text-${getCategoryColor(
+                                    discussion.category
+                                  )}-700 border-${getCategoryColor(
+                                    discussion.category
+                                  )}-200`}
                                 >
                                   {discussion.author.role}
                                 </Badge>
@@ -321,7 +377,14 @@ export function CommunityForum() {
                             </div>
 
                             <div className="flex items-center gap-4 text-sm text-gray-500">
-                              <button className="flex items-center gap-1 hover:text-blue-600 transition-colors">
+                              <button
+                                className="flex items-center gap-1 hover:text-blue-600 transition-colors"
+                                onClick={() =>
+                                  onNavigateToDiscussion?.(
+                                    discussion.id.toString()
+                                  )
+                                }
+                              >
                                 <MessageSquare className="w-4 h-4" />
                                 {discussion.replies}
                               </button>
@@ -344,31 +407,52 @@ export function CommunityForum() {
 
               <TabsContent value="featured" className="space-y-4">
                 {featuredDiscussions.map((discussion) => (
-                  <Card key={discussion.id} className="hover:shadow-md transition-shadow border-l-4 border-l-blue-500">
+                  <Card
+                    key={discussion.id}
+                    className="hover:shadow-md transition-shadow border-l-4 border-l-blue-500"
+                  >
                     <CardContent className="p-6">
                       <div className="flex items-start gap-4">
                         <Avatar className="w-10 h-10">
-                          <AvatarImage src={discussion.author.avatar || "/placeholder.svg"} />
-                          <AvatarFallback>{discussion.author.initials}</AvatarFallback>
+                          <AvatarImage
+                            src={discussion.author.avatar || "/placeholder.svg"}
+                          />
+                          <AvatarFallback>
+                            {discussion.author.initials}
+                          </AvatarFallback>
                         </Avatar>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-2">
                             <Star className="w-4 h-4 text-yellow-500" />
-                            <h3 className="font-medium text-gray-900 hover:text-blue-600 cursor-pointer">
+                            <h3
+                              className="font-medium text-gray-900 hover:text-blue-600 cursor-pointer"
+                              onClick={() =>
+                                onNavigateToDiscussion?.(
+                                  discussion.id.toString()
+                                )
+                              }
+                            >
                               {discussion.title}
                             </h3>
                             {discussion.isAnswered && (
-                              <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                              <Badge
+                                variant="outline"
+                                className="bg-green-50 text-green-700 border-green-200"
+                              >
                                 Answered
                               </Badge>
                             )}
                           </div>
 
-                          <p className="text-gray-600 text-sm line-clamp-2 mb-3">{discussion.content}</p>
+                          <p className="text-gray-600 text-sm line-clamp-2 mb-3">
+                            {discussion.content}
+                          </p>
 
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-1 text-sm text-gray-500">
-                              <span className="font-medium text-gray-900">{discussion.author.name}</span>
+                              <span className="font-medium text-gray-900">
+                                {discussion.author.name}
+                              </span>
                               <span>•</span>
                               <Badge variant="outline" className="text-xs">
                                 {discussion.author.role}
@@ -410,24 +494,44 @@ export function CommunityForum() {
                       <CardContent className="p-6">
                         <div className="flex items-start gap-4">
                           <Avatar className="w-10 h-10">
-                            <AvatarImage src={discussion.author.avatar || "/placeholder.svg"} />
-                            <AvatarFallback>{discussion.author.initials}</AvatarFallback>
+                            <AvatarImage
+                              src={
+                                discussion.author.avatar || "/placeholder.svg"
+                              }
+                            />
+                            <AvatarFallback>
+                              {discussion.author.initials}
+                            </AvatarFallback>
                           </Avatar>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 mb-2">
-                              <h3 className="font-medium text-gray-900 hover:text-blue-600 cursor-pointer">
+                              <h3
+                                className="font-medium text-gray-900 hover:text-blue-600 cursor-pointer"
+                                onClick={() =>
+                                  onNavigateToDiscussion?.(
+                                    discussion.id.toString()
+                                  )
+                                }
+                              >
                                 {discussion.title}
                               </h3>
-                              <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-200">
+                              <Badge
+                                variant="outline"
+                                className="bg-orange-50 text-orange-700 border-orange-200"
+                              >
                                 Needs Answer
                               </Badge>
                             </div>
 
-                            <p className="text-gray-600 text-sm line-clamp-2 mb-3">{discussion.content}</p>
+                            <p className="text-gray-600 text-sm line-clamp-2 mb-3">
+                              {discussion.content}
+                            </p>
 
                             <div className="flex items-center justify-between">
                               <div className="flex items-center gap-1 text-sm text-gray-500">
-                                <span className="font-medium text-gray-900">{discussion.author.name}</span>
+                                <span className="font-medium text-gray-900">
+                                  {discussion.author.name}
+                                </span>
                                 <span>•</span>
                                 <Badge variant="outline" className="text-xs">
                                   {discussion.author.role}
@@ -436,7 +540,15 @@ export function CommunityForum() {
                                 <span>{discussion.timeAgo}</span>
                               </div>
 
-                              <Button size="sm" variant="outline">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() =>
+                                  onNavigateToDiscussion?.(
+                                    discussion.id.toString()
+                                  )
+                                }
+                              >
                                 <Reply className="w-4 h-4 mr-2" />
                                 Answer
                               </Button>
@@ -461,7 +573,9 @@ export function CommunityForum() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
-                <label className="text-sm font-medium text-gray-700 mb-2 block">Category</label>
+                <label className="text-sm font-medium text-gray-700 mb-2 block">
+                  Category
+                </label>
                 <Select>
                   <SelectTrigger>
                     <SelectValue placeholder="Select a category" />
@@ -477,25 +591,34 @@ export function CommunityForum() {
               </div>
 
               <div>
-                <label className="text-sm font-medium text-gray-700 mb-2 block">Title</label>
+                <label className="text-sm font-medium text-gray-700 mb-2 block">
+                  Title
+                </label>
                 <Input placeholder="What would you like to discuss?" />
               </div>
 
               <div>
-                <label className="text-sm font-medium text-gray-700 mb-2 block">Description</label>
-                <Textarea placeholder="Provide more details about your question or topic..." rows={6} />
+                <label className="text-sm font-medium text-gray-700 mb-2 block">
+                  Description
+                </label>
+                <Textarea
+                  placeholder="Provide more details about your question or topic..."
+                  rows={6}
+                />
               </div>
 
               <div className="flex justify-end gap-3 pt-4">
                 <Button variant="outline" onClick={() => setShowNewPost(false)}>
                   Cancel
                 </Button>
-                <Button onClick={() => setShowNewPost(false)}>Post Discussion</Button>
+                <Button onClick={() => setShowNewPost(false)}>
+                  Post Discussion
+                </Button>
               </div>
             </CardContent>
           </Card>
         </div>
       )}
     </div>
-  )
+  );
 }

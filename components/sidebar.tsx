@@ -4,6 +4,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Input } from "@/components/ui/input";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -24,6 +25,7 @@ import {
   Settings,
   LogOut,
   Shield,
+  Search,
 } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { useLanguage } from "@/contexts/language-context";
@@ -33,9 +35,14 @@ import type { NavigationView } from "./navigation";
 interface SidebarProps {
   currentView: NavigationView;
   onNavigate: (view: NavigationView) => void;
+  onOpenSearch?: () => void;
 }
 
-export function Sidebar({ currentView, onNavigate }: SidebarProps) {
+export function Sidebar({
+  currentView,
+  onNavigate,
+  onOpenSearch,
+}: SidebarProps) {
   const { user, logout } = useAuth();
   const { t } = useLanguage();
 
@@ -53,8 +60,20 @@ export function Sidebar({ currentView, onNavigate }: SidebarProps) {
             <BookOpen className="w-5 h-5 text-white" />
           </div>
           <div className="flex-1">
-            <h1 className="font-bold text-lg text-gray-900">Inclusive Learn</h1>
-            {/* <p className="text-sm text-gray-500">Inclusive Education</p> */}
+            <h1 className="font-bold text-lg text-gray-900">Rise Together</h1>
+            <p className="text-sm text-gray-500">Inclusive Education</p>
+          </div>
+        </div>
+
+        <div className="mb-4">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+            <Input
+              placeholder="Search everything..."
+              className="pl-10 bg-gray-50 border-gray-200 focus:bg-white cursor-pointer"
+              onClick={onOpenSearch}
+              readOnly
+            />
           </div>
         </div>
 
@@ -76,15 +95,15 @@ export function Sidebar({ currentView, onNavigate }: SidebarProps) {
                         .toUpperCase()}
                     </AvatarFallback>
                   </Avatar>
-                  <div className="flex-1 text-left">
+                  <div className="text-left">
                     <p className="font-medium text-sm text-gray-900">
                       {user.name}
                     </p>
-                    {/* <div className="flex items-center gap-2"> */}
+                    <div className="flex items-center gap-2">
                       <p className="text-xs text-gray-500 capitalize">
                         {t(`role.${user.role}`)}
                       </p>
-                      {/* {user.role === "admin" && (
+                      {user.role === "admin" && (
                         <Badge
                           variant="secondary"
                           className="text-xs bg-red-100 text-red-600"
@@ -93,7 +112,16 @@ export function Sidebar({ currentView, onNavigate }: SidebarProps) {
                           Admin
                         </Badge>
                       )}
-                    </div> */}
+                      {user.role === "teacher" && (
+                        <Badge
+                          variant="secondary"
+                          className="text-xs bg-blue-100 text-blue-600"
+                        >
+                          <GraduationCap className="w-3 h-3 mr-1" />
+                          Teacher
+                        </Badge>
+                      )}
+                    </div>
                   </div>
                 </Button>
               </DropdownMenuTrigger>
@@ -106,6 +134,15 @@ export function Sidebar({ currentView, onNavigate }: SidebarProps) {
                   <Settings className="w-4 h-4 mr-2" />
                   Settings
                 </DropdownMenuItem>
+                {user.role === "teacher" && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => onNavigate("teacher")}>
+                      <GraduationCap className="w-4 h-4 mr-2" />
+                      Teacher Dashboard
+                    </DropdownMenuItem>
+                  </>
+                )}
                 {user.role === "admin" && (
                   <>
                     <DropdownMenuSeparator />
@@ -137,7 +174,11 @@ export function Sidebar({ currentView, onNavigate }: SidebarProps) {
 
       {/* Navigation */}
       <div className="p-4 border-b border-gray-200">
-        <div className="grid grid-cols-2 gap-2">
+        <div
+          className={`grid gap-2 ${
+            user?.role === "teacher" ? "grid-cols-3" : "grid-cols-2"
+          }`}
+        >
           <Button
             variant={currentView === "library" ? "default" : "outline"}
             size="sm"
@@ -156,6 +197,17 @@ export function Sidebar({ currentView, onNavigate }: SidebarProps) {
             <GraduationCap className="w-4 h-4 mr-2" />
             {t("nav.courses")}
           </Button>
+          {user?.role === "teacher" && (
+            <Button
+              variant={currentView === "teacher" ? "default" : "outline"}
+              size="sm"
+              className="flex-1 bg-transparent col-span-2"
+              onClick={() => onNavigate("teacher")}
+            >
+              <GraduationCap className="w-4 h-4 mr-2" />
+              Teaching Dashboard
+            </Button>
+          )}
           <Button
             variant={currentView === "forum" ? "default" : "outline"}
             size="sm"

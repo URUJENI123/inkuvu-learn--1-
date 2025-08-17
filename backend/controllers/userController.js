@@ -1,5 +1,4 @@
-import User from "../models/User.js";
-import Course from "../models/Course.js";
+import prisma from "../lib/prisma.js";
 
 const userController = {
   // Get all users (admin only)
@@ -16,34 +15,67 @@ const userController = {
       } = req.query;
 
       // Build filter object
-      const filter = {};
-      if (role) filter.role = role;
-      if (isActive !== undefined) filter.isActive = isActive === "true";
+      const where = {};
+      if (role) where.role = role.toUpperCase();
+      if (isActive !== undefined) where.isActive = isActive === "true";
       if (search) {
-        filter.$or = [
-          { firstName: { $regex: search, $options: "i" } },
-          { lastName: { $regex: search, $options: "i" } },
-          { email: { $regex: search, $options: "i" } },
+        where.OR = [
+          { firstName: { contains: search, mode: "insensitive" } },
+          { lastName: { contains: search, mode: "insensitive" } },
+          { email: { contains: search, mode: "insensitive" } },
         ];
       }
 
-      // Build sort object
-      const sort = {};
-      sort[sortBy] = sortOrder === "desc" ? -1 : 1;
-
       const skip = (Number.parseInt(page) - 1) * Number.parseInt(limit);
 
-      const users = await User.find(filter)
-        .select("-password")
-        .sort(sort)
-        .skip(skip)
-        .limit(Number.parseInt(limit))
-        .populate("coursesEnrolled", "title");
+      const [users, total] = await Promise.all([
+        prisma.user.findMany({
+          where,
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            role: true,
+            profileImage: true,
+            bio: true,
+            location: true,
+            preferredLanguage: true,
+            isActive: true,
+            lastLogin: true,
+            createdAt: true,
+            updatedAt: true,
+            coursesEnrolled: {
+              include: {
+                course: {
+                  select: {
+                    id: true,
+                    title: true,
+                  },
+                },
+              },
+            },
+          },
+          orderBy: {
+            [sortBy]: sortOrder,
+          },
+          skip,
+          take: Number.parseInt(limit),
+        }),
+        prisma.user.count({ where }),
+      ]);
 
-      const total = await User.countDocuments(filter);
+      // Transform the data to match the expected format
+      const transformedUsers = users.map((user) => ({
+        ...user,
+        fullName: `${user.firstName} ${user.lastName}`,
+        coursesEnrolled: user.coursesEnrolled.map(
+          (enrollment) => enrollment.course
+        ),
+      }));
 
       res.json({
-        users,
+        users: transformedUsers,
         pagination: {
           currentPage: Number.parseInt(page),
           totalPages: Math.ceil(total / Number.parseInt(limit)),
@@ -67,10 +99,60 @@ const userController = {
   // Get user by ID
   getUserById: async (req, res) => {
     try {
-      const user = await User.findById(req.params.id)
-        .select("-password")
-        .populate("coursesEnrolled", "title thumbnailUrl instructor")
-        .populate("coursesCompleted.courseId", "title thumbnailUrl");
+      const user = await prisma.user.findUnique({
+        where: { id: req.params.id },
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          email: true,
+          role: true,
+          profileImage: true,
+          bio: true,
+          location: true,
+          preferredLanguage: true,
+          screenReader: true,
+          highContrast: true,
+          largeText: true,
+          audioDescriptions: true,
+          signLanguage: true,
+          brailleSupport: true,
+          isActive: true,
+          lastLogin: true,
+          createdAt: true,
+          updatedAt: true,
+          coursesEnrolled: {
+            include: {
+              course: {
+                select: {
+                  id: true,
+                  title: true,
+                  thumbnailUrl: true,
+                  instructor: {
+                    select: {
+                      id: true,
+                      firstName: true,
+                      lastName: true,
+                    },
+                  },
+                },
+              },
+            },
+          },
+          coursesCompleted: {
+            include: {
+              course: {
+                select: {
+                  id: true,
+                  title: true,
+                  thumbnailUrl: true,
+                },
+              },
+            },
+          },
+          achievements: true,
+        },
+      });
 
       if (!user) {
         return res.status(404).json({
@@ -78,7 +160,24 @@ const userController = {
         });
       }
 
-      res.json({ user });
+      // Transform the data to match the expected format
+      const transformedUser = {
+        ...user,
+        fullName: `${user.firstName} ${user.lastName}`,
+        accessibilityPreferences: {
+          screenReader: user.screenReader,
+          highContrast: user.highContrast,
+          largeText: user.largeText,
+          audioDescriptions: user.audioDescriptions,
+          signLanguage: user.signLanguage,
+          brailleSupport: user.brailleSupport,
+        },
+        coursesEnrolled: user.coursesEnrolled.map(
+          (enrollment) => enrollment.course
+        ),
+      };
+
+      res.json({ user: transformedUser });
     } catch (error) {
       console.error("Get user error:", error);
       res.status(500).json({
@@ -97,29 +196,48 @@ const userController = {
       const { role } = req.body;
       const userId = req.params.id;
 
-      if (!["student", "teacher", "parent", "admin"].includes(role)) {
+      const validRoles = ["STUDENT", "TEACHER", "PARENT", "ADMIN"];
+      const upperRole = role?.toUpperCase();
+
+      if (!validRoles.includes(upperRole)) {
         return res.status(400).json({
           message: "Invalid role specified",
         });
       }
 
-      const user = await User.findByIdAndUpdate(
-        userId,
-        { role },
-        { new: true, runValidators: true }
-      ).select("-password");
+      const user = await prisma.user.update({
+        where: { id: userId },
+        data: { role: upperRole },
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          email: true,
+          role: true,
+          profileImage: true,
+          bio: true,
+          location: true,
+          preferredLanguage: true,
+          isActive: true,
+          lastLogin: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      });
 
-      if (!user) {
+      res.json({
+        message: "User role updated successfully",
+        user: {
+          ...user,
+          fullName: `${user.firstName} ${user.lastName}`,
+        },
+      });
+    } catch (error) {
+      if (error.code === "P2025") {
         return res.status(404).json({
           message: "User not found",
         });
       }
-
-      res.json({
-        message: "User role updated successfully",
-        user,
-      });
-    } catch (error) {
       console.error("Update user role error:", error);
       res.status(500).json({
         message: "Server error during role update",
@@ -135,7 +253,11 @@ const userController = {
   toggleUserStatus: async (req, res) => {
     try {
       const userId = req.params.id;
-      const user = await User.findById(userId);
+
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { id: true, isActive: true },
+      });
 
       if (!user) {
         return res.status(404).json({
@@ -143,20 +265,23 @@ const userController = {
         });
       }
 
-      user.isActive = !user.isActive;
-      await user.save();
+      const updatedUser = await prisma.user.update({
+        where: { id: userId },
+        data: { isActive: !user.isActive },
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          email: true,
+          isActive: true,
+        },
+      });
 
       res.json({
         message: `User ${
-          user.isActive ? "activated" : "deactivated"
+          updatedUser.isActive ? "activated" : "deactivated"
         } successfully`,
-        user: {
-          id: user._id,
-          firstName: user.firstName,
-          lastName: user.lastName,
-          email: user.email,
-          isActive: user.isActive,
-        },
+        user: updatedUser,
       });
     } catch (error) {
       console.error("Toggle user status error:", error);
@@ -174,9 +299,26 @@ const userController = {
   getUserStats: async (req, res) => {
     try {
       const userId = req.params.id;
-      const user = await User.findById(userId)
-        .populate("coursesEnrolled")
-        .populate("coursesCompleted.courseId");
+
+      const [user, enrollments, completions, achievements] = await Promise.all([
+        prisma.user.findUnique({
+          where: { id: userId },
+          select: {
+            id: true,
+            createdAt: true,
+            lastLogin: true,
+          },
+        }),
+        prisma.courseEnrollment.findMany({
+          where: { studentId: userId },
+        }),
+        prisma.courseCompletion.findMany({
+          where: { studentId: userId },
+        }),
+        prisma.achievement.findMany({
+          where: { userId: userId },
+        }),
+      ]);
 
       if (!user) {
         return res.status(404).json({
@@ -184,21 +326,23 @@ const userController = {
         });
       }
 
+      const averageProgress =
+        enrollments.length > 0
+          ? Math.round(
+              (enrollments.reduce(
+                (sum, enrollment) => sum + enrollment.progress,
+                0
+              ) /
+                enrollments.length) *
+                100
+            )
+          : 0;
+
       const stats = {
-        totalCoursesEnrolled: user.coursesEnrolled.length,
-        totalCoursesCompleted: user.coursesCompleted.filter(
-          (course) => course.completionPercentage === 100
-        ).length,
-        totalAchievements: user.achievements.length,
-        averageProgress:
-          user.coursesCompleted.length > 0
-            ? Math.round(
-                user.coursesCompleted.reduce(
-                  (sum, course) => sum + course.completionPercentage,
-                  0
-                ) / user.coursesCompleted.length
-              )
-            : 0,
+        totalCoursesEnrolled: enrollments.length,
+        totalCoursesCompleted: completions.length,
+        totalAchievements: achievements.length,
+        averageProgress,
         joinDate: user.createdAt,
         lastLogin: user.lastLogin,
       };
@@ -219,26 +363,29 @@ const userController = {
   // Add achievement to user
   addAchievement: async (req, res) => {
     try {
-      const { title, description, icon, type } = req.body;
+      const { title, description, icon } = req.body;
       const userId = req.params.id;
 
-      const user = await User.findById(userId);
+      // Check if user exists
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { id: true },
+      });
+
       if (!user) {
         return res.status(404).json({
           message: "User not found",
         });
       }
 
-      const achievement = {
-        title,
-        description,
-        icon,
-        type,
-        earnedAt: new Date(),
-      };
-
-      user.achievements.push(achievement);
-      await user.save();
+      const achievement = await prisma.achievement.create({
+        data: {
+          title,
+          description,
+          icon,
+          userId,
+        },
+      });
 
       res.json({
         message: "Achievement added successfully",
@@ -259,29 +406,35 @@ const userController = {
   // Get platform analytics (admin only)
   getPlatformAnalytics: async (req, res) => {
     try {
-      const totalUsers = await User.countDocuments();
-      const activeUsers = await User.countDocuments({ isActive: true });
-      const totalCourses = await Course.countDocuments();
-      const publishedCourses = await Course.countDocuments({
-        isPublished: true,
-      });
-
-      // User role distribution
-      const userRoles = await User.aggregate([
-        { $group: { _id: "$role", count: { $sum: 1 } } },
+      const [
+        totalUsers,
+        activeUsers,
+        totalCourses,
+        publishedCourses,
+        userRoles,
+        courseCategories,
+        recentRegistrations,
+      ] = await Promise.all([
+        prisma.user.count(),
+        prisma.user.count({ where: { isActive: true } }),
+        prisma.course.count(),
+        prisma.course.count({ where: { isPublished: true } }),
+        prisma.user.groupBy({
+          by: ["role"],
+          _count: { role: true },
+        }),
+        prisma.course.groupBy({
+          by: ["category"],
+          _count: { category: true },
+        }),
+        prisma.user.count({
+          where: {
+            createdAt: {
+              gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), // 30 days ago
+            },
+          },
+        }),
       ]);
-
-      // Course category distribution
-      const courseCategories = await Course.aggregate([
-        { $group: { _id: "$category", count: { $sum: 1 } } },
-      ]);
-
-      // Recent registrations (last 30 days)
-      const thirtyDaysAgo = new Date();
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-      const recentRegistrations = await User.countDocuments({
-        createdAt: { $gte: thirtyDaysAgo },
-      });
 
       const analytics = {
         users: {
@@ -289,13 +442,19 @@ const userController = {
           active: activeUsers,
           inactive: totalUsers - activeUsers,
           recentRegistrations,
-          roleDistribution: userRoles,
+          roleDistribution: userRoles.map((role) => ({
+            _id: role.role,
+            count: role._count.role,
+          })),
         },
         courses: {
           total: totalCourses,
           published: publishedCourses,
           draft: totalCourses - publishedCourses,
-          categoryDistribution: courseCategories,
+          categoryDistribution: courseCategories.map((category) => ({
+            _id: category.category,
+            count: category._count.category,
+          })),
         },
       };
 

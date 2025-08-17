@@ -1,0 +1,182 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model User {
+  id                String             @id @default(cuid())
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  firstName         String
+  lastName          String
+  email             String             @unique
+  password          String
+  role              String             @default("STUDENT")
+  profileImage      String?
+  bio               String?
+  location          String?
+  preferredLanguage String             @default("EN")
+  screenReader      Boolean            @default(false)
+  highContrast      Boolean            @default(false)
+  largeText         Boolean            @default(false)
+  audioDescriptions Boolean            @default(false)
+  signLanguage      Boolean            @default(false)
+  brailleSupport    Boolean            @default(false)
+  isActive          Boolean            @default(true)
+  lastLogin         DateTime?
+  achievements      Achievement[]
+  coursesCompleted  CourseCompletion[]
+  coursesEnrolled   CourseEnrollment[]
+  courseRatings     CourseRating[]
+  coursesAuthored   Course[]           @relation("CourseCreator")
+  coursesCreated    Course[]           @relation("CourseInstructor")
+  resourceRatings   ResourceRating[]
+  resourcesUploaded Resource[]         @relation("ResourceUploader")
+
+  @@map("users")
+}
+
+model Course {
+  id                String             @id @default(cuid())
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  title             String
+  description       String
+  category          String
+  level             String
+  language          String             @default("EN")
+  thumbnailUrl      String?
+  duration          Int?
+  audioDescriptions Boolean            @default(false)
+  signLanguage      Boolean            @default(false)
+  brailleSupport    Boolean            @default(false)
+  tactileDiagrams   Boolean            @default(false)
+  closedCaptions    Boolean            @default(false)
+  isPublished       Boolean            @default(false)
+  tags              String?
+  instructorId      String
+  createdById       String
+  completions       CourseCompletion[]
+  enrollments       CourseEnrollment[]
+  ratings           CourseRating[]
+  createdBy         User               @relation("CourseCreator", fields: [createdById], references: [id])
+  instructor        User               @relation("CourseInstructor", fields: [instructorId], references: [id])
+  lessons           Lesson[]
+
+  @@map("courses")
+}
+
+model Lesson {
+  id               String     @id @default(cuid())
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+  title            String
+  description      String?
+  content          String?
+  videoUrl         String?
+  duration         Int?
+  orderIndex       Int
+  transcript       String?
+  audioDescription String?
+  courseId         String
+  course           Course     @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  resources        Resource[]
+
+  @@map("lessons")
+}
+
+model Resource {
+  id          String           @id @default(cuid())
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  title       String
+  description String?
+  type        String
+  url         String
+  fileSize    Int?
+  mimeType    String?
+  altText     String?
+  transcript  String?
+  uploaderId  String
+  lessonId    String?
+  ratings     ResourceRating[]
+  lesson      Lesson?          @relation(fields: [lessonId], references: [id])
+  uploader    User             @relation("ResourceUploader", fields: [uploaderId], references: [id])
+
+  @@map("resources")
+}
+
+model CourseEnrollment {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  userId    String
+  courseId  String
+  progress  Float    @default(0)
+  course    Course   @relation(fields: [courseId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@unique([userId, courseId])
+  @@map("course_enrollments")
+}
+
+model CourseCompletion {
+  id          String   @id @default(cuid())
+  createdAt   DateTime @default(now())
+  userId      String
+  courseId    String
+  score       Float?
+  completedAt DateTime @default(now())
+  course      Course   @relation(fields: [courseId], references: [id])
+  user        User     @relation(fields: [userId], references: [id])
+
+  @@unique([userId, courseId])
+  @@map("course_completions")
+}
+
+model CourseRating {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  rating    Int
+  review    String?
+  userId    String
+  courseId  String
+  course    Course   @relation(fields: [courseId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@unique([userId, courseId])
+  @@map("course_ratings")
+}
+
+model ResourceRating {
+  id         String   @id @default(cuid())
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  rating     Int
+  review     String?
+  userId     String
+  resourceId String
+  resource   Resource @relation(fields: [resourceId], references: [id])
+  user       User     @relation(fields: [userId], references: [id])
+
+  @@unique([userId, resourceId])
+  @@map("resource_ratings")
+}
+
+model Achievement {
+  id          String   @id @default(cuid())
+  createdAt   DateTime @default(now())
+  title       String
+  description String
+  icon        String?
+  userId      String
+  earnedAt    DateTime @default(now())
+  user        User     @relation(fields: [userId], references: [id])
+
+  @@map("achievements")
+}
